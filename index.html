@@ -1593,11 +1593,11 @@ function selectAnswer(btn, chosen, correct) {
   const fb = document.getElementById('quiz-fb');
   if (chosen === correct) {
     btn.classList.add('correct'); quizCorrect++;
-    fb.textContent = '\u2713 Benar!'; fb.className = 'quiz-feedback fb-ok';
+    fb.textContent = '✓ Benar!'; fb.className = 'quiz-feedback fb-ok';
   } else {
     btn.classList.add('wrong'); quizWrong++;
     document.querySelectorAll('.quiz-opt').forEach(o => { if(o.querySelector('span').textContent===correct) o.classList.add('correct'); });
-    fb.textContent = `\u2717 Salah! Jawaban: ${correct}`; fb.className = 'quiz-feedback fb-no';
+    fb.textContent = '✗ Salah! Jawaban: ' + correct; fb.className = 'quiz-feedback fb-no';
   }
   document.getElementById('sc-correct').textContent = quizCorrect;
   document.getElementById('sc-wrong').textContent = quizWrong;
@@ -1618,7 +1618,7 @@ function startAutoNextAfterAnswer() {
   if (timerWasActive) {
     const totalSecs = delay / 1000;
     let secLeft = totalSecs;
-    dotWrap.innerHTML = '<div style="position:relative;width:36px;height:36px;flex-shrink:0"><svg viewBox="0 0 36 36" style="width:36px;height:36px;transform:rotate(-90deg)"><circle cx="18" cy="18" r="15" fill="none" stroke="var(--border)" stroke-width="3"/><circle id="ans-ring-arc" cx="18" cy="18" r="15" fill="none" stroke="var(--accent2)" stroke-width="3" stroke-dasharray="94.2" stroke-dashoffset="0" stroke-linecap="round" style="transition:stroke-dashoffset 1s linear,stroke .3s"/></svg><div id="ans-ring-num" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-weight:800;font-size:.82rem;color:var(--accent2)">3</div></div>';
+    dotWrap.innerHTML = "<div style=\"position:relative;width:36px;height:36px;flex-shrink:0\"><svg viewBox=\"0 0 36 36\" style=\"width:36px;height:36px;transform:rotate(-90deg)\"><circle cx=\"18\" cy=\"18\" r=\"15\" fill=\"none\" stroke=\"var(--border)\" stroke-width=\"3\"/><circle id=\"ans-ring-arc\" cx=\"18\" cy=\"18\" r=\"15\" fill=\"none\" stroke=\"var(--accent2)\" stroke-width=\"3\" stroke-dasharray=\"94.2\" stroke-dashoffset=\"0\" stroke-linecap=\"round\" style=\"transition:stroke-dashoffset 1s linear,stroke .3s\"/></svg><div id=\"ans-ring-num\" style=\"position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:Syne,sans-serif;font-weight:800;font-size:.82rem;color:var(--accent2)\">3</div></div>";
     _dotIntervalTimer = setInterval(() => {
       secLeft--;
       const numEl = document.getElementById('ans-ring-num');
