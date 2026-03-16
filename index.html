@@ -694,8 +694,12 @@ nav{position:sticky;top:0;z-index:200;background:rgba(245,242,238,.94);backdrop-
 
   <div class="quiz-opts" id="quiz-opts"></div>
   <div class="quiz-feedback" id="quiz-fb"></div>
-  <div style="display:flex;justify-content:center;align-items:center;min-height:44px">
-    <button id="quiz-next-btn" class="btn btn-blue btn-sm" onclick="skipToNext()" style="display:none">Lanjut →</button>
+  <div style="display:flex;justify-content:center;align-items:center;gap:12px;min-height:44px">
+    <div id="quiz-autonext-bar" style="display:none;align-items:center;gap:10px">
+      <!-- mini dot countdown -->
+      <div style="display:flex;gap:5px;align-items:center" id="quiz-dot-wrap"></div>
+      <button id="quiz-next-btn" class="btn btn-outline btn-sm" onclick="skipToNext()" style="padding:5px 14px;font-size:.74rem">Skip →</button>
+    </div>
   </div>
 </div>
 
@@ -1401,6 +1405,7 @@ document.addEventListener('touchend', e => {
 function startQuiz() {
   if (!vocabList.length) return;
   clearInterval(autoNextTimer);
+  clearTimeout(autoNextAfterAnswerTimer);
   // Resolve count: projCount (0=all), else global setting
   let count = currentProjCount > 0 ? currentProjCount : parseInt(getSetting('quizCount','0')||'0');
   if (!count || count <= 0) count = vocabList.length; // 0 = semua vocab
@@ -1492,8 +1497,8 @@ function renderQuestion() {
   document.getElementById('quiz-label').textContent = q.label;
   document.getElementById('quiz-fb').textContent = '';
   document.getElementById('quiz-fb').className = 'quiz-feedback';
-  document.getElementById('quiz-autonext-wrap') && (document.getElementById('quiz-autonext-wrap').style.display = 'none');
-  document.getElementById('quiz-next-btn').style.display = 'none';
+  document.getElementById('quiz-autonext-bar') && (document.getElementById('quiz-autonext-bar').style.display = 'none');
+  clearTimeout(autoNextAfterAnswerTimer);
   clearInterval(autoNextTimer);
   waitingNext = false;
   const imgEl = document.getElementById('quiz-img');
@@ -1552,12 +1557,7 @@ function startQuestionTimer() {
         }
         const fb = document.getElementById('quiz-fb');
         fb.textContent = '⏰ Waktu habis!'; fb.className = 'quiz-feedback fb-no';
-        document.getElementById('quiz-next-btn').style.display = 'inline-flex';
-        // Auto-advance after 1.5s
-        setTimeout(() => {
-          document.getElementById('quiz-next-btn').style.display = 'none';
-          nextQuestion();
-        }, 1500);
+        startAutoNextAfterAnswer();
       }
     }
   }, 1000);
@@ -1579,6 +1579,11 @@ function updateQuestionTimerUI(sec, total) {
   lblEl.style.color = isUrgent ? 'var(--accent)' : 'var(--ink2)';
 }
 
+let autoNextAfterAnswerTimer = null;
+let _dotIntervalTimer = null;
+const AUTO_NEXT_DELAY_NORMAL = 1500;
+const AUTO_NEXT_DELAY_TIMED  = 3000;
+
 function selectAnswer(btn, chosen, correct) {
   if (waitingNext) return;
   waitingNext = true;
@@ -1588,26 +1593,77 @@ function selectAnswer(btn, chosen, correct) {
   const fb = document.getElementById('quiz-fb');
   if (chosen === correct) {
     btn.classList.add('correct'); quizCorrect++;
-    fb.textContent = '✓ Benar!'; fb.className = 'quiz-feedback fb-ok';
+    fb.textContent = '\u2713 Benar!'; fb.className = 'quiz-feedback fb-ok';
   } else {
     btn.classList.add('wrong'); quizWrong++;
     document.querySelectorAll('.quiz-opt').forEach(o => { if(o.querySelector('span').textContent===correct) o.classList.add('correct'); });
-    fb.textContent = `✗ Salah! Jawaban: ${correct}`; fb.className = 'quiz-feedback fb-no';
+    fb.textContent = `\u2717 Salah! Jawaban: ${correct}`; fb.className = 'quiz-feedback fb-no';
   }
   document.getElementById('sc-correct').textContent = quizCorrect;
   document.getElementById('sc-wrong').textContent = quizWrong;
-  document.getElementById('quiz-next-btn').style.display = 'inline-flex';
+  startAutoNextAfterAnswer();
 }
 
+function startAutoNextAfterAnswer() {
+  const bar     = document.getElementById('quiz-autonext-bar');
+  const dotWrap = document.getElementById('quiz-dot-wrap');
+  bar.style.display = 'flex';
+
+  const timerWasActive = questionTotalSec > 0;
+  const delay = timerWasActive ? AUTO_NEXT_DELAY_TIMED : AUTO_NEXT_DELAY_NORMAL;
+
+  clearInterval(_dotIntervalTimer);
+  clearTimeout(autoNextAfterAnswerTimer);
+
+  if (timerWasActive) {
+    const totalSecs = delay / 1000;
+    let secLeft = totalSecs;
+    dotWrap.innerHTML = '<div style="position:relative;width:36px;height:36px;flex-shrink:0"><svg viewBox="0 0 36 36" style="width:36px;height:36px;transform:rotate(-90deg)"><circle cx="18" cy="18" r="15" fill="none" stroke="var(--border)" stroke-width="3"/><circle id="ans-ring-arc" cx="18" cy="18" r="15" fill="none" stroke="var(--accent2)" stroke-width="3" stroke-dasharray="94.2" stroke-dashoffset="0" stroke-linecap="round" style="transition:stroke-dashoffset 1s linear,stroke .3s"/></svg><div id="ans-ring-num" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-weight:800;font-size:.82rem;color:var(--accent2)">3</div></div>';
+    _dotIntervalTimer = setInterval(() => {
+      secLeft--;
+      const numEl = document.getElementById('ans-ring-num');
+      const arcEl = document.getElementById('ans-ring-arc');
+      if (!numEl) return;
+      numEl.textContent = secLeft;
+      arcEl.style.strokeDashoffset = 94.2 * (1 - secLeft / totalSecs);
+      const urgent = secLeft <= 1;
+      arcEl.style.stroke = urgent ? 'var(--accent)' : 'var(--accent2)';
+      numEl.style.color  = urgent ? 'var(--accent)' : 'var(--accent2)';
+    }, 1000);
+  } else {
+    const DOTS = 3;
+    dotWrap.innerHTML = '';
+    for (let i = 0; i < DOTS; i++) {
+      const d = document.createElement('div');
+      d.style.cssText = 'width:8px;height:8px;border-radius:50%;background:var(--border);transition:background .2s';
+      dotWrap.appendChild(d);
+    }
+    const dots = dotWrap.querySelectorAll('div');
+    let filled = 0;
+    _dotIntervalTimer = setInterval(() => {
+      if (filled < DOTS) { dots[filled].style.background = 'var(--accent2)'; filled++; }
+    }, delay / DOTS);
+  }
+
+  autoNextAfterAnswerTimer = setTimeout(() => {
+    clearInterval(_dotIntervalTimer);
+    bar.style.display = 'none';
+    nextQuestion();
+  }, delay);
+}
 function skipToNext() {
+  clearTimeout(autoNextAfterAnswerTimer);
+  clearInterval(_dotIntervalTimer);
   clearInterval(autoNextTimer);
-  document.getElementById('quiz-next-btn').style.display = 'none';
+  document.getElementById('quiz-autonext-bar').style.display = 'none';
   nextQuestion();
 }
 
 function nextQuestion() {
+  clearTimeout(autoNextAfterAnswerTimer);
+  clearInterval(_dotIntervalTimer);
   clearInterval(autoNextTimer);
-  document.getElementById('quiz-next-btn').style.display = 'none';
+  document.getElementById('quiz-autonext-bar').style.display = 'none';
   document.getElementById('quiz-timer-badge').style.display = 'none';
   quizIndex++; renderQuestion();
 }
